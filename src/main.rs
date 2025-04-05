@@ -1,15 +1,14 @@
 mod recorder;
-use std::{error::Error, ops::Not};
+mod interface;
 
+use std::{error::Error, ops::Not};
 use recorder::audio;
+use interface::input::read_line;
 
 fn main() -> Result<(), Box<dyn Error>> {
-    let mut rec = audio::Recorder::new();
-    let mut name = String::new();
-    let mut rec = rec.record()?;
-    println!("Press enter to stop recording. Optionally, enter a name for the output file.");
-    let _ = std::io::stdin().read_line(&mut name);
-    let name = name.trim().to_string();
+    let mut rec = audio::Recorder::new().record()?;
+    println!("Press enter to stop recording. Optionally, enter a name for the output file. If no name is supplied, the time/date at which the file was saved will be the name.");
+    let name = read_line();
     rec.stop_recording(name.is_empty().not().then_some(name));
     Ok(())
 }
