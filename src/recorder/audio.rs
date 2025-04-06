@@ -3,11 +3,11 @@ use cpal::{
     traits::{DeviceTrait, HostTrait, StreamTrait},
 };
 use std::marker::PhantomData;
-use std::sync::{Arc, LazyLock, Mutex};
+use std::sync::{Arc, LazyLock};
 use std::thread;
 
-use super::file_io::write_wav_input_data;
-use super::{NotRecording, Recorder};
+use super::file_io::{write_wav_input_data, Extension};
+use super::{NotRecording, Recorder, RecorderData};
 
 // vs OnceLock? vs other?
 static DEVICE: LazyLock<Device> =
@@ -20,9 +20,9 @@ pub struct AudioRecorder;
 impl AudioRecorder {
     pub fn new() -> Recorder<f32, NotRecording> {
         Recorder {
-            data: Some(Arc::new(Mutex::new(Vec::new()))),
+            data: Some(RecorderData::<f32>::new()),
             state: PhantomData::<NotRecording>,
-            recorder_type: super::file_io::Extension::WAV,
+            recorder_type: Extension::WAV,
             recording_thread: None,
             record_fn: Arc::new(Box::new(|data| {
                 let clone = data.clone();
