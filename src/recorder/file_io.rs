@@ -1,27 +1,29 @@
 use chrono::Local;
 use cpal::{FromSample, Sample};
 use hound::{WavSpec, WavWriter};
-use std::fs::File;
+use std::{fmt::Debug, fs::File};
+
+#[derive(Debug, Clone, Copy)]
 pub enum Extension {
-    Wav,
+    WAV,
 }
 
 impl Extension {
     pub fn to_string(&self) -> String {
         match self {
-            Self::Wav => "wav",
+            Self::WAV => "wav",
         }
         .to_string()
     }
 }
 
-pub fn write_input_data<T, U>(
+pub fn write_wav_input_data<T, U>(
     data: &Vec<T>,
     config: &cpal::StreamConfig,
     file_name: Option<String>,
-    ext: Extension,
+    // ext: Extension,
 ) where
-    T: Sample,
+    T: Sample + Debug,
     U: Sample + hound::Sample + FromSample<T>,
 {
     let path = std::env::current_dir().unwrap().join(format!(
@@ -30,7 +32,7 @@ pub fn write_input_data<T, U>(
             Some(x) => x,
             None => Local::now().format("%Y-%m-%d_%H:%M:%S").to_string(),
         },
-        ext.to_string()
+        Extension::WAV.to_string()
     ));
     File::create(&path).unwrap();
 

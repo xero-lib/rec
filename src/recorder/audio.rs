@@ -1,14 +1,13 @@
 use cpal::{
-    Device, Sample, StreamConfig,
+    Device, StreamConfig,
     traits::{DeviceTrait, HostTrait, StreamTrait},
 };
 use std::marker::PhantomData;
-use std::{
-    sync::{Arc, LazyLock, Mutex},
-    thread::{self, Thread},
-};
+use std::sync::{Arc, LazyLock, Mutex};
+use std::thread;
 
-use super::file_io::{Extension::Wav, write_input_data};
+use super::file_io::write_wav_input_data;
+use super::{NotRecording, Recorder};
 
 // vs OnceLock? vs other?
 static DEVICE: LazyLock<Device> =
@@ -16,48 +15,23 @@ static DEVICE: LazyLock<Device> =
 static CONFIG: LazyLock<StreamConfig> =
     LazyLock::new(|| DEVICE.default_input_config().unwrap().config());
 
-pub struct NotRecording;
-pub struct Recording;
-pub struct Recorder<State = NotRecording> {
-    data: Arc<Mutex<Vec<f32>>>,
-    state: PhantomData<State>,
-    recording_thread: Option<Thread>,
-}
+pub struct AudioRecorder;
 
-impl Recorder {
-    pub fn new() -> Self {
+impl AudioRecorder {
+    pub fn new() -> Recorder<f32, NotRecording> {
         Recorder {
-            data: Arc::new(Mutex::new(Vec::<f32>::new())),
+            data: Some(Arc::new(Mutex::new(Vec::new()))),
             state: PhantomData::<NotRecording>,
+            recorder_type: super::file_io::Extension::WAV,
             recording_thread: None,
-        }
-    }
-}
-
-impl Recorder<Recording> {
-    pub fn stop_recording(&mut self, file_name: Option<String>) -> Recorder<NotRecording> {
-        self.recording_thread.as_ref().unwrap().unpark();
-        write_input_data::<f32, f32>(self.data.lock().unwrap().as_ref(), &CONFIG, file_name, Wav);
-        Recorder {
-            data: self.data.clone(),
-            state: PhantomData::<NotRecording>,
-            recording_thread: self.recording_thread.clone(),
-        }
-    }
-}
-
-impl Recorder<NotRecording> {
-    pub fn record(&mut self) -> Result<Recorder<Recording>, Box<dyn std::error::Error>> {
-        let clone = self.data.clone();
-        let recording_thread = Some(
-            thread::spawn(|| {
+            record_fn: Arc::new(Box::new(|data| {
+                let clone = data.clone();
                 let stream = DEVICE
                     .build_input_stream(
                         &CONFIG,
                         move |value: &[f32], _| {
-                            value
-                                .iter()
-                                .for_each(|x| clone.lock().unwrap().push(x.to_sample()))
+                            let mut lock = clone.lock().unwrap();
+                            value.iter().for_each(|&x| lock.push(x));
                         },
                         |e| eprintln!("Error detected while recording: {e:?}"),
                         None,
@@ -65,14 +39,10 @@ impl Recorder<NotRecording> {
                     .unwrap();
                 stream.play().unwrap();
                 thread::park();
-            })
-            .thread()
-            .clone(),
-        );
-        Ok(Recorder {
-            data: self.data.clone(),
-            state: PhantomData::<Recording>,
-            recording_thread,
-        })
+            })),
+            save_fn: Arc::new(Box::new(|data, name| {
+                write_wav_input_data::<f32, f32>(data.lock().unwrap().as_mut(), &CONFIG, name)
+            })),
+        }
     }
 }
