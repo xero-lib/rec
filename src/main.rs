@@ -2,7 +2,7 @@ mod interface;
 mod recorder;
 
 use interface::input::read_line;
-use recorder::audio::AudioRecorder as Recorder;
+use recorder::AudioRecorder as Recorder;
 use std::{error::Error, ops::Not};
 
 fn main() -> Result<(), Box<dyn Error>> {

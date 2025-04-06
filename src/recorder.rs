@@ -1,4 +1,5 @@
-pub mod audio;
+mod audio;
+pub use audio::AudioRecorder;
 
 use std::fmt::Debug;
 use std::marker::PhantomData;
